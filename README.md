@@ -60,6 +60,10 @@ This starts three containers:
 | `postgres` | postgres:16 | 5432 |
 | `typesense` | typesense/typesense:27.0 | 8108 |
 | `sync-service` | local build | 3000 |
+| `prometheus` | prom/prometheus | 9090 |
+| `loki` | grafana/loki | 3100 |
+| `promtail` | grafana/promtail | — |
+| `grafana` | grafana/grafana | 3001 |
 
 On first start, PostgreSQL runs all migration scripts in `db/migrations/` in order:
 
@@ -270,7 +274,52 @@ Passed: 14  Failed: 0
 
 ## Observability
 
-### Metrics (Prometheus)
+### Prometheus + Loki + Grafana
+
+Metrics, logs, and dashboards are all included in the local stack. After `docker compose up`:
+
+| UI | URL | Credentials |
+|---|---|---|
+| Grafana | http://localhost:3001 | `admin` / `admin` |
+| Prometheus | http://localhost:9090 | — |
+| Loki | http://localhost:3100 | — |
+
+Open Grafana and navigate to **Dashboards → Sync Service**. The dashboard is provisioned automatically and shows:
+
+**Metrics panels (from Prometheus):**
+- **Events processed / sec** — upsert and delete rates over time
+- **Typesense request latency** — p50, p95, p99 histograms
+- **Dead-letter events** — total count of failed events written to the dead-letter table
+- **Last event processed** — unix timestamp of the most recent WAL event
+- **Total / failed events** — cumulative counters
+
+**Log panels (from Loki):**
+- **Service logs** — all log lines from the sync-service, newest first
+- **Error logs** — filtered to `level="error"` only
+
+#### How logs flow
+
+```
+sync-service stdout (pino JSON)
+  └─ Promtail (tails Docker socket, filters by compose service label)
+       └─ pipeline: parse JSON → promote "level" to Loki label
+            └─ Loki (stores and indexes logs)
+                 └─ Grafana (LogQL queries alongside PromQL)
+```
+
+Promtail promotes `level` as a Loki label, so you can filter efficiently in the Logs panel or with LogQL:
+
+```
+{service="sync-service", level="error"}
+{service="sync-service"} | json | shipmentId="abc-123"
+{service="sync-service"} | json | operation="upsert"
+```
+
+Prometheus scrapes `/metrics` every 15 seconds. The scrape config is in `prometheus.yml`.
+
+### Raw metrics
+
+You can also inspect the raw Prometheus text directly:
 
 ```bash
 curl http://localhost:3000/metrics
@@ -293,7 +342,7 @@ The service emits structured JSON logs via [pino](https://getpino.io). Log level
 # Follow logs
 docker compose logs -f sync-service
 
-# Pretty-print with pino-pretty (if installed globally)
+# Pretty-print with pino-pretty
 docker compose logs -f sync-service | npx pino-pretty
 ```
 
@@ -349,8 +398,14 @@ This re-runs all migrations and re-seeds the database. The sync-service performs
 
 ```
 pgsql-typesense-sync/
-├── docker-compose.yml          # local dev stack
+├── docker-compose.yml          # local dev stack (includes Prometheus + Grafana)
 ├── docker-compose.prod.yml     # production resource overrides
+├── prometheus.yml              # Prometheus scrape config
+├── promtail-config.yml         # Promtail log collector config
+├── grafana/
+│   └── provisioning/
+│       ├── datasources/        # auto-wires Prometheus + Loki as data sources
+│       └── dashboards/         # pre-built Sync Service dashboard (metrics + logs)
 ├── .env.example                # copy to .env for local dev
 │
 ├── db/
