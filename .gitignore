@@ -1,0 +1,28 @@
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Dependencies
+node_modules/
+sync-service/node_modules/
+
+# TypeScript build output
+sync-service/dist/
+
+# Docker volumes (if accidentally created locally)
+postgres_data/
+typesense_data/
+
+# macOS
+.DS_Store
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs
+*.log
+npm-debug.log*

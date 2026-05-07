@@ -1,0 +1,28 @@
+services:
+  postgres:
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+
+  typesense:
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+
+  sync-service:
+    build:
+      context: ./sync-service
+      dockerfile: Dockerfile
+    # No src volume mount in production — image contains compiled dist only
+    volumes: []
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+    environment:
+      LOG_LEVEL: info

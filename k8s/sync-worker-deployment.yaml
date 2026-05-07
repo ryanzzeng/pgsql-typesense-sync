@@ -1,0 +1,42 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sync-worker
+spec:
+  replicas: 1  # singleton — only one consumer per replication slot
+  selector:
+    matchLabels:
+      app: sync-worker
+  template:
+    metadata:
+      labels:
+        app: sync-worker
+    spec:
+      terminationGracePeriodSeconds: 40
+      containers:
+        - name: sync-worker
+          image: your-registry/sync-service:latest
+          envFrom:
+            - configMapRef:
+                name: sync-config
+            - secretRef:
+                name: sync-secrets
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 3000
+            initialDelaySeconds: 15
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 3000
+            initialDelaySeconds: 10
+            periodSeconds: 5

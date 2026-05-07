@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: sync-config
+data:
+  POSTGRES_HOST: postgres
+  POSTGRES_PORT: "5432"
+  POSTGRES_DB: sync_db
+  TYPESENSE_HOST: typesense
+  TYPESENSE_PORT: "8108"
+  TYPESENSE_COLLECTION: shipments
+  PORT: "3000"
+  INITIAL_SYNC_BATCH_SIZE: "100"
+  REPLICATION_SLOT: sync_slot
+  REPLICATION_PUBLICATION: sync_pub
+  RETRY_MAX_ATTEMPTS: "5"
+  RETRY_INITIAL_DELAY_MS: "500"
+  RETRY_MAX_DELAY_MS: "30000"
+  LOG_LEVEL: info
