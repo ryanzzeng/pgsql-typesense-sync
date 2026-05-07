@@ -1,0 +1,36 @@
+server:
+  http_listen_port: 9080
+  grpc_listen_port: 0
+
+positions:
+  filename: /tmp/positions.yaml
+
+clients:
+  - url: http://loki:3100/loki/api/v1/push
+
+scrape_configs:
+  - job_name: sync-service
+    docker_sd_configs:
+      - host: unix:///var/run/docker.sock
+        refresh_interval: 5s
+        filters:
+          - name: label
+            values: ["com.docker.compose.service=sync-service"]
+    relabel_configs:
+      - source_labels: [__meta_docker_container_label_com_docker_compose_service]
+        target_label: service
+      - source_labels: [__meta_docker_container_name]
+        regex: /(.*)
+        target_label: container
+    pipeline_stages:
+      # Step 1: unwrap Docker's JSON log envelope
+      # Docker wraps every line as: {"log":"<actual line>\n","stream":"stdout","time":"..."}
+      - docker: {}
+      # Step 2: parse the inner pino JSON to extract the level field
+      - json:
+          expressions:
+            level: level
+      # Step 3: promote level as a Loki label for efficient filtering
+      # Allows queries like: {service="sync-service", level="error"}
+      - labels:
+          level:

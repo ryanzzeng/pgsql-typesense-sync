@@ -15,6 +15,7 @@ postgres_data/
 typesense_data/
 prometheus_data/
 grafana_data/
+loki_data/
 
 # macOS
 .DS_Store
