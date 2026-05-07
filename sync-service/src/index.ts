@@ -7,6 +7,7 @@ import { ensureCollection } from './typesenseClient';
 import { runInitialSync } from './initialSync';
 import { handleEvent } from './eventHandler';
 import { walMessageToSyncEvent } from './walHandler';
+import { EventCoalescer } from './coalescer';
 import { registerGracefulShutdown } from './gracefulShutdown';
 import logger from './logger';
 import api from './api';
@@ -55,29 +56,34 @@ async function main(): Promise<void> {
   let inFlight = 0;
   let drainResolve: (() => void) | null = null;
 
-  replService.on('data', (lsn: string, log: unknown) => {
-    if (stopping) {
-      replService.acknowledge(lsn).catch((err: Error) =>
-        logger.error({ err: err.message }, 'ack error during drain'),
-      );
-      return;
-    }
+  const coalescer = new EventCoalescer(
+    config.coalesceWindowMs,
+    async (events) => {
+      await Promise.allSettled(events.map((e) => handleEvent(e)));
+    },
+  );
 
-    inFlight++;
-    const handle = async (): Promise<void> => {
-      try {
-        const event = walMessageToSyncEvent(log);
-        if (event) await handleEvent(event);
-      } catch (err: unknown) {
-        logger.error({ err: (err as Error).message }, 'event handler error');
-      } finally {
-        await replService.acknowledge(lsn);
-        inFlight--;
-        if (inFlight === 0 && drainResolve) drainResolve();
-      }
+  replService.on('data', (lsn: string, log: unknown) => {
+    // Always acknowledge the LSN immediately to keep the slot advancing.
+    // At-least-once delivery is guaranteed by the startup backfill if the service restarts.
+    const ack = (): void => {
+      replService.acknowledge(lsn).catch((err: Error) =>
+        logger.error({ err: err.message }, 'ack error'),
+      );
     };
 
-    handle().catch((err: Error) => logger.error({ err: err.message }, 'ack error'));
+    if (stopping) { ack(); return; }
+
+    inFlight++;
+    const event = walMessageToSyncEvent(log);
+    if (event) coalescer.add(event);
+
+    Promise.resolve()
+      .then(() => { ack(); })
+      .finally(() => {
+        inFlight--;
+        if (inFlight === 0 && drainResolve) drainResolve();
+      });
   });
 
   replService.on('error', (err: Error) => {
@@ -94,10 +100,11 @@ async function main(): Promise<void> {
     replService.stop();
 
     if (inFlight > 0) {
-      logger.info({ inFlight }, 'waiting for in-flight events to drain');
+      logger.info({ inFlight }, 'waiting for in-flight acks to drain');
       await new Promise<void>((resolve) => { drainResolve = resolve; });
     }
 
+    await coalescer.drain();
     await pool.end();
     logger.info('db pool closed — shutdown complete');
   });
@@ -108,7 +115,7 @@ async function main(): Promise<void> {
 
   app.use((err: Error & { httpStatus?: number }, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.httpStatus ?? 500;
-    logger.error({ err: err.message, status }, 'api error');
+    logger.error({ err: err.message, status, requestId: res.locals.requestId as string }, 'api error');
     res.status(status).json({ error: err.message });
   });
 

@@ -53,6 +53,7 @@ export interface AppConfig {
     host:       string;
     port:       number;
     apiKey:     string;
+    searchApiKey: string;
     collection: string;
   };
   replication: {
@@ -64,7 +65,9 @@ export interface AppConfig {
     initialDelayMs: number;
     maxDelayMs:     number;
   };
-  port:          number;
-  syncBatchSize: number;
-  logLevel:      string;
+  port:            number;
+  syncBatchSize:   number;
+  logLevel:        string;
+  apiKey:          string | undefined;
+  coalesceWindowMs: number;
 }
