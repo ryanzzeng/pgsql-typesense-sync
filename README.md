@@ -270,7 +270,28 @@ Passed: 14  Failed: 0
 
 ## Observability
 
-### Metrics (Prometheus)
+### Prometheus + Grafana
+
+Prometheus and Grafana are included in the local stack. After `docker compose up`:
+
+| UI | URL | Credentials |
+|---|---|---|
+| Grafana | http://localhost:3001 | `admin` / `admin` |
+| Prometheus | http://localhost:9090 | — |
+
+Open Grafana and navigate to **Dashboards → Sync Service**. The dashboard is provisioned automatically and shows:
+
+- **Events processed / sec** — upsert and delete rates over time
+- **Typesense request latency** — p50, p95, p99 histograms
+- **Dead-letter events** — total count of failed events written to the dead-letter table
+- **Last event processed** — unix timestamp of the most recent WAL event
+- **Total / failed events** — cumulative counters
+
+Prometheus scrapes `/metrics` every 15 seconds. The scrape config is in `prometheus.yml`.
+
+### Raw metrics
+
+You can also inspect the raw Prometheus text directly:
 
 ```bash
 curl http://localhost:3000/metrics
@@ -293,7 +314,7 @@ The service emits structured JSON logs via [pino](https://getpino.io). Log level
 # Follow logs
 docker compose logs -f sync-service
 
-# Pretty-print with pino-pretty (if installed globally)
+# Pretty-print with pino-pretty
 docker compose logs -f sync-service | npx pino-pretty
 ```
 
@@ -349,8 +370,13 @@ This re-runs all migrations and re-seeds the database. The sync-service performs
 
 ```
 pgsql-typesense-sync/
-├── docker-compose.yml          # local dev stack
+├── docker-compose.yml          # local dev stack (includes Prometheus + Grafana)
 ├── docker-compose.prod.yml     # production resource overrides
+├── prometheus.yml              # Prometheus scrape config
+├── grafana/
+│   └── provisioning/
+│       ├── datasources/        # auto-wires Prometheus as data source
+│       └── dashboards/         # pre-built Sync Service dashboard
 ├── .env.example                # copy to .env for local dev
 │
 ├── db/

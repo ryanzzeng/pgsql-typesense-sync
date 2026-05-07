@@ -1,0 +1,94 @@
+{
+  "title": "Sync Service",
+  "uid": "sync-service",
+  "schemaVersion": 38,
+  "refresh": "10s",
+  "time": { "from": "now-1h", "to": "now" },
+  "panels": [
+    {
+      "id": 1,
+      "title": "Events processed / sec",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 0, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "expr": "rate(sync_events_total{status=\"success\"}[1m])",
+          "legendFormat": "{{operation}} success"
+        },
+        {
+          "expr": "rate(sync_events_total{status=\"failed\"}[1m])",
+          "legendFormat": "{{operation}} failed"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Typesense request latency (p50 / p95 / p99)",
+      "type": "timeseries",
+      "gridPos": { "x": 12, "y": 0, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.50, rate(sync_typesense_request_duration_seconds_bucket[1m]))",
+          "legendFormat": "p50"
+        },
+        {
+          "expr": "histogram_quantile(0.95, rate(sync_typesense_request_duration_seconds_bucket[1m]))",
+          "legendFormat": "p95"
+        },
+        {
+          "expr": "histogram_quantile(0.99, rate(sync_typesense_request_duration_seconds_bucket[1m]))",
+          "legendFormat": "p99"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Dead-letter events (total)",
+      "type": "stat",
+      "gridPos": { "x": 0, "y": 8, "w": 6, "h": 4 },
+      "targets": [
+        {
+          "expr": "sync_dead_letter_total",
+          "legendFormat": "dead-letter"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "Last event processed",
+      "type": "stat",
+      "gridPos": { "x": 6, "y": 8, "w": 6, "h": 4 },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "targets": [
+        {
+          "expr": "sync_last_event_timestamp",
+          "legendFormat": "last event (unix)"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "title": "Total events processed",
+      "type": "stat",
+      "gridPos": { "x": 12, "y": 8, "w": 6, "h": 4 },
+      "targets": [
+        {
+          "expr": "sum(sync_events_total{status=\"success\"})",
+          "legendFormat": "total"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "title": "Failed events (total)",
+      "type": "stat",
+      "gridPos": { "x": 18, "y": 8, "w": 6, "h": 4 },
+      "targets": [
+        {
+          "expr": "sum(sync_events_total{status=\"failed\"})",
+          "legendFormat": "failed"
+        }
+      ]
+    }
+  ]
+}

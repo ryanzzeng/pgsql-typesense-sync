@@ -13,6 +13,8 @@ sync-service/dist/
 # Docker volumes (if accidentally created locally)
 postgres_data/
 typesense_data/
+prometheus_data/
+grafana_data/
 
 # macOS
 .DS_Store
