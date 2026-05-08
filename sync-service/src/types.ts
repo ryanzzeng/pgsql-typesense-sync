@@ -69,5 +69,6 @@ export interface AppConfig {
   syncBatchSize:   number;
   logLevel:        string;
   apiKey:          string | undefined;
-  coalesceWindowMs: number;
+  coalesceWindowMs:  number;
+  coalesceMaxBuffer: number;
 }
