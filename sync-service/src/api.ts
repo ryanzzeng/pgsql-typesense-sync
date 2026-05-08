@@ -11,13 +11,22 @@ import config from './config';
 
 const router = Router();
 
-// ─── Correlation ID ───────────────────────────────────────────────────────────
-// Generates a request ID for every inbound request and echoes it in the response.
-// Use res.locals.requestId to include it in log calls within route handlers.
+// ─── Correlation ID + access logging ─────────────────────────────────────────
+// Assigns a requestId to every request, echoes it in the response header,
+// and emits one structured log line per response (method, path, status, ms).
 router.use((req: Request, res: Response, next: NextFunction) => {
   const id = (req.headers['x-request-id'] as string | undefined) ?? randomUUID();
   res.setHeader('x-request-id', id);
   res.locals.requestId = id;
+  const startMs = Date.now();
+  res.on('finish', () => {
+    const ms = Date.now() - startMs;
+    const level = res.statusCode >= 500 ? 'error' : res.statusCode >= 400 ? 'warn' : 'info';
+    logger[level](
+      { method: req.method, path: req.path, status: res.statusCode, ms, requestId: id },
+      'request',
+    );
+  });
   next();
 });
 
