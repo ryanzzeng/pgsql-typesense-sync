@@ -75,7 +75,7 @@ async function main(): Promise<void> {
     if (stopping) { ack(); return; }
 
     inFlight++;
-    const event = walMessageToSyncEvent(log);
+    const event = walMessageToSyncEvent(log, lsn);
     if (event) coalescer.add(event);
 
     Promise.resolve()

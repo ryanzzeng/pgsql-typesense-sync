@@ -46,8 +46,8 @@ export function toDocument(row: ShipmentRow): ShipmentDocument {
   };
 }
 
-export async function upsertShipment(id: string): Promise<void> {
-  const ctx = { shipmentId: id, operation: 'upsert' };
+export async function upsertShipment(id: string, eventId?: string): Promise<void> {
+  const ctx = { shipmentId: id, operation: 'upsert', eventId };
 
   try {
     await withRetry(async () => {
@@ -59,7 +59,7 @@ export async function upsertShipment(id: string): Promise<void> {
       await tsClient.collections(config.typesense.collection).documents().upsert(doc);
       end();
 
-      logger.info({ shipmentId: id, trackingNumber: doc.tracking_number }, 'document upserted');
+      logger.info({ shipmentId: id, trackingNumber: doc.tracking_number, eventId }, 'document upserted');
     }, ctx);
 
     recordEvent('upsert', true);
@@ -75,8 +75,8 @@ export async function upsertShipment(id: string): Promise<void> {
   }
 }
 
-export async function deleteShipment(id: string): Promise<void> {
-  const ctx = { shipmentId: id, operation: 'delete' };
+export async function deleteShipment(id: string, eventId?: string): Promise<void> {
+  const ctx = { shipmentId: id, operation: 'delete', eventId };
 
   try {
     await withRetry(async () => {
@@ -89,7 +89,7 @@ export async function deleteShipment(id: string): Promise<void> {
       } finally {
         end();
       }
-      logger.info({ shipmentId: id }, 'document deleted');
+      logger.info({ shipmentId: id, eventId }, 'document deleted');
     }, ctx);
 
     recordEvent('delete', true);

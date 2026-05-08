@@ -1,3 +1,4 @@
+import { randomUUID } from 'crypto';
 import { SyncEvent, TableName, SqlOperation } from './types';
 
 // Minimal structural types for pgoutput WAL messages.
@@ -18,7 +19,7 @@ interface WalMessage {
 
 const TRACKED_TABLES = new Set<string>(['shipments', 'cargo']);
 
-export function walMessageToSyncEvent(log: unknown): SyncEvent | null {
+export function walMessageToSyncEvent(log: unknown, lsn: string): SyncEvent | null {
   if (typeof log !== 'object' || log === null) return null;
 
   const msg = log as WalMessage;
@@ -38,6 +39,8 @@ export function walMessageToSyncEvent(log: unknown): SyncEvent | null {
         table:     table as TableName,
         operation: (msg.tag === 'insert' ? 'INSERT' : 'UPDATE') as SqlOperation,
         id:        String(id),
+        eventId:   randomUUID(),
+        lsn,
       };
     }
     case 'delete': {
@@ -47,7 +50,7 @@ export function walMessageToSyncEvent(log: unknown): SyncEvent | null {
       if (!row) return null;
       const id = table === 'shipments' ? row.id : row.shipment_id;
       if (!id) return null;
-      return { table: table as TableName, operation: 'DELETE', id: String(id) };
+      return { table: table as TableName, operation: 'DELETE', id: String(id), eventId: randomUUID(), lsn };
     }
     default:
       return null;
