@@ -61,6 +61,7 @@ async function main(): Promise<void> {
     async (events) => {
       await Promise.allSettled(events.map((e) => handleEvent(e)));
     },
+    config.coalesceMaxBuffer,
   );
 
   replService.on('data', (lsn: string, log: unknown) => {

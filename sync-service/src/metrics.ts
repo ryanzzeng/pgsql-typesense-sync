@@ -22,6 +22,12 @@ export const syncLastEventTimestamp = new Gauge({
   help: 'Unix timestamp of the last successfully processed WAL event',
 });
 
+export const syncCoalescerBufferSize = new Gauge({
+  name: 'sync_coalescer_buffer_size',
+  help: 'Number of unique shipment IDs currently buffered in the event coalescer. ' +
+        'Alert if this approaches COALESCE_MAX_BUFFER to detect backpressure.',
+});
+
 let _lastEventTs = 0;
 
 export function recordEvent(operation: string, success: boolean): void {
