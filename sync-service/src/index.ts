@@ -53,8 +53,6 @@ async function main(): Promise<void> {
   );
 
   let stopping = false;
-  let inFlight = 0;
-  let drainResolve: (() => void) | null = null;
 
   const coalescer = new EventCoalescer(
     config.coalesceWindowMs,
@@ -64,26 +62,26 @@ async function main(): Promise<void> {
   );
 
   replService.on('data', (lsn: string, log: unknown) => {
-    // Always acknowledge the LSN immediately to keep the slot advancing.
-    // At-least-once delivery is guaranteed by the startup backfill if the service restarts.
     const ack = (): void => {
       replService.acknowledge(lsn).catch((err: Error) =>
         logger.error({ err: err.message }, 'ack error'),
       );
     };
 
+    // When stopping, drain in-flight items but don't queue new work
     if (stopping) { ack(); return; }
 
-    inFlight++;
     const event = walMessageToSyncEvent(log);
-    if (event) coalescer.add(event);
-
-    Promise.resolve()
-      .then(() => { ack(); })
-      .finally(() => {
-        inFlight--;
-        if (inFlight === 0 && drainResolve) drainResolve();
-      });
+    if (event) {
+      // Data events: ACK is deferred until after the Typesense write succeeds inside the coalescer flush.
+      // This gives true at-least-once delivery — if the process dies before the write completes,
+      // the replication slot replays from the last acknowledged LSN on the next startup.
+      coalescer.add(event, ack);
+    } else {
+      // Non-data WAL messages (begin, commit, relation, keepalive): ACK immediately.
+      // These carry no data we need to sync; advancing past them is safe.
+      ack();
+    }
   });
 
   replService.on('error', (err: Error) => {
@@ -99,11 +97,7 @@ async function main(): Promise<void> {
     stopping = true;
     replService.stop();
 
-    if (inFlight > 0) {
-      logger.info({ inFlight }, 'waiting for in-flight acks to drain');
-      await new Promise<void>((resolve) => { drainResolve = resolve; });
-    }
-
+    // drain() flushes any buffered events, completes Typesense writes, then calls their ACKs.
     await coalescer.drain();
     await pool.end();
     logger.info('db pool closed — shutdown complete');
