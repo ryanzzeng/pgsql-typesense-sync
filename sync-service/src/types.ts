@@ -43,11 +43,14 @@ export interface SyncEvent {
 
 export interface AppConfig {
   postgres: {
-    host:     string;
-    port:     number;
-    database: string;
-    user:     string;
-    password: string;
+    host:               string;
+    port:               number;
+    database:           string;
+    user:               string;
+    password:           string;
+    max:                number;   // pool max connections
+    idleTimeoutMillis:  number;
+    connectionTimeoutMillis: number;
   };
   typesense: {
     host:       string;
