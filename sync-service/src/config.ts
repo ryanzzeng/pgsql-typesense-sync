@@ -20,11 +20,14 @@ for (const key of required) {
 
 const config: AppConfig = {
   postgres: {
-    host:     process.env.POSTGRES_HOST!,
-    port:     parseInt(process.env.POSTGRES_PORT!, 10),
-    database: process.env.POSTGRES_DB!,
-    user:     process.env.POSTGRES_USER!,
-    password: process.env.POSTGRES_PASSWORD!,
+    host:                    process.env.POSTGRES_HOST!,
+    port:                    parseInt(process.env.POSTGRES_PORT!, 10),
+    database:                process.env.POSTGRES_DB!,
+    user:                    process.env.POSTGRES_USER!,
+    password:                process.env.POSTGRES_PASSWORD!,
+    max:                     parseInt(process.env.PG_POOL_MAX                  ?? '10',    10),
+    idleTimeoutMillis:       parseInt(process.env.PG_POOL_IDLE_TIMEOUT_MS      ?? '10000', 10),
+    connectionTimeoutMillis: parseInt(process.env.PG_POOL_CONNECTION_TIMEOUT_MS ?? '5000', 10),
   },
   typesense: {
     host:         process.env.TYPESENSE_HOST!,
