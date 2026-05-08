@@ -6,27 +6,7 @@ import { withRetry } from './retry';
 import { writeDeadLetter } from './deadLetter';
 import { syncTypesenseRequestDuration, recordEvent } from './metrics';
 import { ShipmentDocument, ShipmentRow } from './types';
-
-const QUERY = `
-  SELECT
-    s.id,
-    s.tracking_number,
-    s.status,
-    s.carrier,
-    s.origin_port,
-    s.destination_port,
-    s.estimated_arrival,
-    s.created_at,
-    s.updated_at,
-    COALESCE(array_agg(c.description) FILTER (WHERE c.id IS NOT NULL), '{}') AS cargo_descriptions,
-    COALESCE(SUM(c.weight_kg), 0)         AS cargo_total_weight_kg,
-    COALESCE(SUM(c.volume_m3), 0)         AS cargo_total_volume_m3,
-    COALESCE(BOOL_OR(c.hazardous), false) AS cargo_has_hazardous
-  FROM shipments s
-  LEFT JOIN cargo c ON c.shipment_id = s.id
-  WHERE s.id = $1
-  GROUP BY s.id
-`;
+import { SHIPMENT_BY_ID_QUERY } from './queries';
 
 export function toDocument(row: ShipmentRow): ShipmentDocument {
   return {
@@ -51,7 +31,7 @@ export async function upsertShipment(id: string): Promise<void> {
 
   try {
     await withRetry(async () => {
-      const { rows } = await pool.query<ShipmentRow>(QUERY, [id]);
+      const { rows } = await pool.query<ShipmentRow>(SHIPMENT_BY_ID_QUERY, [id]);
       if (rows.length === 0) return;
       const doc = toDocument(rows[0]);
 
