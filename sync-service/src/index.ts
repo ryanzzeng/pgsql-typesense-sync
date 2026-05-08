@@ -2,7 +2,7 @@ import './config'; // validates env vars before anything else
 
 import express, { Request, Response, NextFunction } from 'express';
 import { LogicalReplicationService, PgoutputPlugin } from 'pg-logical-replication';
-import { pool, ensureReplicationSlot } from './db';
+import { pool, ensureReplicationSlot, startLagPoller } from './db';
 import { ensureCollection } from './typesenseClient';
 import { runInitialSync } from './initialSync';
 import { handleEvent } from './eventHandler';
@@ -40,6 +40,7 @@ async function main(): Promise<void> {
   await ensureCollection();
   await ensureReplicationSlot();
   await runInitialSync();
+  const stopLagPoller = startLagPoller(config.lagPollIntervalMs);
 
   const replService = new LogicalReplicationService(
     {
@@ -97,6 +98,7 @@ async function main(): Promise<void> {
 
   registerGracefulShutdown(async () => {
     stopping = true;
+    stopLagPoller();
     replService.stop();
 
     if (inFlight > 0) {

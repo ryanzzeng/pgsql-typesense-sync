@@ -22,6 +22,12 @@ export const syncLastEventTimestamp = new Gauge({
   help: 'Unix timestamp of the last successfully processed WAL event',
 });
 
+export const syncReplicationLagBytes = new Gauge({
+  name: 'sync_replication_lag_bytes',
+  help: 'WAL bytes between the current write LSN and the slot\'s confirmed flush LSN. ' +
+        'High values indicate the sync service is falling behind the database.',
+});
+
 let _lastEventTs = 0;
 
 export function recordEvent(operation: string, success: boolean): void {

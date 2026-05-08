@@ -46,7 +46,8 @@ const config: AppConfig = {
   syncBatchSize:    parseInt(process.env.INITIAL_SYNC_BATCH_SIZE ?? '100', 10),
   logLevel:         process.env.LOG_LEVEL ?? 'info',
   apiKey:           process.env.API_KEY || undefined,
-  coalesceWindowMs: parseInt(process.env.COALESCE_WINDOW_MS ?? '50', 10),
+  coalesceWindowMs:  parseInt(process.env.COALESCE_WINDOW_MS   ?? '50',    10),
+  lagPollIntervalMs: parseInt(process.env.LAG_POLL_INTERVAL_MS ?? '10000', 10),
 };
 
 export default config;
