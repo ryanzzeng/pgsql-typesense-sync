@@ -5,7 +5,7 @@ import logger from './logger';
 import { withRetry } from './retry';
 import { writeDeadLetter } from './deadLetter';
 import { syncTypesenseRequestDuration, recordEvent } from './metrics';
-import { ShipmentDocument, ShipmentRow } from './types';
+import { ShipmentDocument, ShipmentRow, SyncEvent } from './types';
 
 const QUERY = `
   SELECT
@@ -46,7 +46,7 @@ export function toDocument(row: ShipmentRow): ShipmentDocument {
   };
 }
 
-export async function upsertShipment(id: string): Promise<void> {
+export async function upsertShipment(id: string, sourceEvent?: SyncEvent): Promise<void> {
   const ctx = { shipmentId: id, operation: 'upsert' };
 
   try {
@@ -69,13 +69,14 @@ export async function upsertShipment(id: string): Promise<void> {
       tableName: 'shipments',
       operation: 'UPSERT',
       recordId:  id,
+      payload:   sourceEvent,
       error:     (err as Error).message,
       attempts:  config.retry.maxAttempts,
     });
   }
 }
 
-export async function deleteShipment(id: string): Promise<void> {
+export async function deleteShipment(id: string, sourceEvent?: SyncEvent): Promise<void> {
   const ctx = { shipmentId: id, operation: 'delete' };
 
   try {
@@ -99,6 +100,7 @@ export async function deleteShipment(id: string): Promise<void> {
       tableName: 'shipments',
       operation: 'DELETE',
       recordId:  id,
+      payload:   sourceEvent,
       error:     (err as Error).message,
       attempts:  config.retry.maxAttempts,
     });

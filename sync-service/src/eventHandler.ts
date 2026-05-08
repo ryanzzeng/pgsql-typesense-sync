@@ -6,9 +6,9 @@ export async function handleEvent(event: SyncEvent): Promise<void> {
   const { table, operation, id } = event;
 
   if (operation === 'DELETE' && table === 'shipments') {
-    await deleteShipment(id);
+    await deleteShipment(id, event);
   } else {
-    await upsertShipment(id);
+    await upsertShipment(id, event);
   }
 
   recordLastEvent();
