@@ -1,0 +1,104 @@
+groups:
+  - name: sync-service
+    rules:
+
+      # Dead-letter events are accumulating — Typesense writes are failing
+      # and exhausting all retries. Investigate Typesense connectivity or
+      # data shape issues and use POST /admin/replay to re-process.
+      - alert: SyncDeadLetterAccumulating
+        expr: rate(sync_dead_letter_total[5m]) > 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Dead-letter events accumulating"
+          description: >
+            sync_dead_letter_total has been increasing for 5 minutes.
+            {{ $value | humanize }} events/s are failing after all retries.
+            Check Typesense connectivity and run POST /admin/replay once resolved.
+
+      # A sustained high failure rate (>5% of all events failing) indicates a
+      # systemic issue — not transient blips that retries handle.
+      - alert: SyncHighEventFailureRate
+        expr: >
+          rate(sync_events_total{status="failed"}[5m])
+          /
+          (rate(sync_events_total[5m]) + 0.001)
+          > 0.05
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "High WAL event failure rate"
+          description: >
+            More than 5% of WAL sync events are failing over the last 5 minutes
+            (current: {{ $value | humanizePercentage }}).
+            This indicates a systemic issue with Typesense writes, not transient errors.
+
+      # No events processed in the last 10 minutes when the service is running.
+      # Could mean: replication stream disconnected and not reconnecting,
+      # or the publication has no tracked tables receiving writes (normal for
+      # quiet environments — tune `for:` to match expected write rate).
+      - alert: SyncServiceStalled
+        expr: time() - sync_last_event_timestamp > 600
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Sync service has not processed any events"
+          description: >
+            No WAL events have been processed in the last
+            {{ $value | humanizeDuration }}.
+            The service may have stalled or the replication stream may be disconnected.
+            Check docker compose logs or Kubernetes pod logs.
+
+      # WAL lag is growing — the sync service cannot keep up with the
+      # PostgreSQL write rate. A large lag risks filling disk (WAL segments
+      # cannot be recycled until the slot advances) and increases the
+      # time-to-index for new writes.
+      - alert: SyncReplicationLagHigh
+        expr: sync_replication_lag_bytes > 10000000
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Replication slot lag exceeds 10 MB"
+          description: >
+            The sync replication slot is {{ $value | humanize1024 }}B behind
+            the current WAL write position. This means new PostgreSQL writes
+            are not being indexed promptly and disk pressure from retained
+            WAL segments is growing. Check for Typesense latency spikes or
+            a burst of database activity.
+
+      # Critical lag — at this point PostgreSQL may pause to prevent unbounded
+      # WAL accumulation. This needs immediate attention.
+      - alert: SyncReplicationLagCritical
+        expr: sync_replication_lag_bytes > 100000000
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Replication slot lag exceeds 100 MB — immediate action required"
+          description: >
+            The sync replication slot is {{ $value | humanize1024 }}B behind.
+            PostgreSQL will stop recycling WAL segments until this is resolved,
+            which can fill the data volume and crash the database.
+            Consider dropping and recreating the slot if the service cannot catch up.
+
+      # Typesense API p95 latency is degraded. High latency here will increase
+      # the coalescer flush time and can cause the replication lag to grow.
+      - alert: SyncTypesenseLatencyHigh
+        expr: >
+          histogram_quantile(0.95,
+            rate(sync_typesense_request_duration_seconds_bucket[5m])
+          ) > 1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Typesense API p95 latency > 1s"
+          description: >
+            The 95th percentile Typesense write latency has been above 1 second
+            for 5 minutes (current p95: {{ $value | humanizeDuration }}).
+            This will slow the WAL event pipeline and may cause replication lag
+            to grow. Check Typesense resource utilisation.
