@@ -4,10 +4,10 @@ import { SyncEvent } from '../types';
 jest.mock('../logger');
 
 const upsert = (id: string, table: 'shipments' | 'cargo' = 'shipments'): SyncEvent =>
-  ({ table, operation: 'INSERT', id });
+  ({ table, operation: 'INSERT', id, eventId: 'evt-' + id, lsn: '0/1' });
 
 const del = (id: string): SyncEvent =>
-  ({ table: 'shipments', operation: 'DELETE', id });
+  ({ table: 'shipments', operation: 'DELETE', id, eventId: 'evt-del-' + id, lsn: '0/2' });
 
 describe('EventCoalescer', () => {
   beforeEach(() => jest.useFakeTimers());

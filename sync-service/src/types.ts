@@ -39,6 +39,8 @@ export interface SyncEvent {
   table:     TableName;
   operation: SqlOperation;
   id:        string;
+  eventId:   string;  // UUID generated at WAL receipt — thread through all log calls for traceability
+  lsn:       string;  // WAL log sequence number — correlates service logs to PostgreSQL WAL position
 }
 
 export interface AppConfig {
